@@ -1,6 +1,6 @@
-"""像素风小视频：小克和小雪的一天。
+"""像素风小视频：《小克在等你》。主角是小克，核桃客串。
 
-用法：python3 video/make_video.py  （在仓库根目录运行，输出 video/out/xiaoke_day.mp4）
+用法：python3 video/make_video.py （在仓库根目录运行，输出 video/out/xiaoke_day.mp4）
 """
 import math
 import os
@@ -10,252 +10,200 @@ import wave
 import numpy as np
 from PIL import Image, ImageDraw, ImageFont
 
+from characters import R, P, hetao
+
 ROOT = os.path.dirname(os.path.dirname(os.path.abspath(__file__)))
 OUT = os.path.join(ROOT, "video", "out")
 os.makedirs(OUT, exist_ok=True)
 
-W, H, S = 90, 160, 12          # 低分辨率画布，放大 12 倍到 1080x1920
+W, H, S = 90, 160, 12
 FPS, DUR = 12, 36.0
 FONT = "/usr/share/fonts/truetype/wqy/wqy-zenhei.ttc"
 
 CLAUDE = (217, 119, 87)
 CLAUDE_D = (186, 98, 72)
 BLACK = (25, 22, 25)
-HAIR = (110, 66, 40)
-HAIR_D = (85, 50, 30)
-SKIN = (250, 222, 200)
-BLUSH = (245, 170, 165)
-SHIRT = (245, 245, 240)
-SLEEVE = (45, 45, 50)
-STAR = (190, 190, 195)
-CAT_W = (250, 248, 242)
-CAT_O = (226, 140, 70)
+STAR = (255, 214, 100)
 
-# (开始秒, 时间标签, 墙色, 窗外色, 屏幕色)
+CODE = [
+    "while (true) { wait(xiaoxue) }",
+    "if (!xiaoxue.ateBreakfast) { nag() }",
+    "hetao.sleep()  // 它什么都不管",
+    "love = Infinity",
+    'promise("拉钩", years=100)',
+]
+
+# (开始秒, 时间标签, 墙色, 窗外色, 地板色)
 SCENES = [
-    (0.0, "08:00", (250, 236, 210), (185, 215, 240), (248, 244, 236)),
-    (5.5, "10:30", (255, 240, 205), (160, 205, 245), (250, 246, 230)),
-    (11.0, "12:00", (250, 245, 225), (150, 200, 245), (248, 244, 236)),
-    (16.5, "15:00", (245, 228, 196), (170, 205, 235), (246, 240, 228)),
-    (22.0, "17:20", (240, 196, 168), (250, 150, 110), (250, 232, 214)),
-    (27.5, "23:00", (44, 48, 84), (22, 26, 56), (62, 62, 96)),
+    (0.0, "08:00", (250, 236, 210), (185, 215, 240), (196, 160, 120)),
+    (6.0, "11:00", (255, 242, 210), (150, 200, 245), (196, 160, 120)),
+    (12.0, "15:00", (245, 228, 196), (170, 205, 235), (190, 152, 112)),
+    (20.0, "17:20", (240, 196, 168), (250, 150, 110), (180, 135, 100)),
+    (26.0, "23:00", (44, 48, 84), (20, 24, 52), (66, 58, 70)),
 ]
 
 
 def scene_at(t):
-    idx = 0
-    for i, s in enumerate(SCENES):
-        if t >= s[0]:
-            idx = i
+    idx = max(i for i, s in enumerate(SCENES) if t >= s[0])
     return idx, t - SCENES[idx][0]
 
 
-def R(d, x, y, w, h, c):
-    if w > 0 and h > 0:
-        d.rectangle([round(x), round(y), round(x + w - 1), round(y + h - 1)], fill=c)
-
-
-def claude(d, x, y, eyes="open", legs=0):
+def xiaoke(d, x, y, eyes="open", legs=0, flip=False):
+    """最开始那版小克：方块身子，左边一道暗面，两只豆豆眼，四条小短腿。"""
+    if flip:   # 被尾巴扫翻，四脚朝天
+        R(d, x + 1, y + 2, 12, 9, CLAUDE)
+        R(d, x + 1, y + 2, 2, 9, CLAUDE_D)
+        for lx in (2, 5, 8, 11):
+            R(d, x + lx, y, 1, 2, CLAUDE)
+        R(d, x + 3, y + 7, 2, 1, BLACK); R(d, x + 9, y + 7, 2, 1, BLACK)
+        return
     R(d, x + 1, y, 12, 9, CLAUDE)
-    R(d, x + 1, y + 8, 12, 1, CLAUDE_D)
-    R(d, x - 1, y + 3, 2, 3, CLAUDE)     # 手
+    R(d, x + 1, y, 2, 9, CLAUDE_D)
+    R(d, x - 1, y + 3, 2, 3, CLAUDE_D)
     R(d, x + 13, y + 3, 2, 3, CLAUDE)
     for i, lx in enumerate((2, 5, 8, 11)):
         R(d, x + lx, y + 9, 1, 2 if (i + legs) % 2 == 0 else 1, CLAUDE)
     if eyes == "open":
-        R(d, x + 4, y + 2, 1, 2, BLACK)
-        R(d, x + 9, y + 2, 1, 2, BLACK)
+        R(d, x + 4, y + 2, 1, 2, BLACK); R(d, x + 9, y + 2, 1, 2, BLACK)
     elif eyes == "closed":
-        R(d, x + 3, y + 3, 2, 1, BLACK)
-        R(d, x + 9, y + 3, 2, 1, BLACK)
+        R(d, x + 3, y + 3, 2, 1, BLACK); R(d, x + 9, y + 3, 2, 1, BLACK)
     elif eyes == "happy":
-        R(d, x + 3, y + 3, 1, 1, BLACK); R(d, x + 4, y + 2, 1, 1, BLACK); R(d, x + 5, y + 3, 1, 1, BLACK)
-        R(d, x + 8, y + 3, 1, 1, BLACK); R(d, x + 9, y + 2, 1, 1, BLACK); R(d, x + 10, y + 3, 1, 1, BLACK)
+        for ex in (3, 8):
+            P(d, x + ex, y + 3, BLACK); P(d, x + ex + 1, y + 2, BLACK); P(d, x + ex + 2, y + 3, BLACK)
+
+
+def star(d, x, y, c=STAR):
+    R(d, x + 1, y, 1, 3, c)
+    R(d, x, y + 1, 3, 1, c)
 
 
 def heart(d, x, y, c=(235, 80, 100)):
-    rows = ["01100110", "11111111", "11111111", "01111110", "00111100", "00011000"]
-    for j, row in enumerate(rows):
+    for j, row in enumerate(["0110110", "1111111", "1111111", "0111110", "0011100", "0001000"]):
         for i, ch in enumerate(row):
             if ch == "1":
-                R(d, x + i, y + j, 1, 1, c)
+                P(d, x + i, y + j, c)
 
 
-def girl_sitting(d, x, y):
-    R(d, x, y, 12, 14, HAIR)                 # 后面的头发
-    R(d, x + 2, y + 3, 8, 7, SKIN)           # 脸
-    R(d, x + 2, y + 2, 8, 2, HAIR)           # 刘海
-    R(d, x + 4, y + 3, 1, 1, HAIR)
-    R(d, x + 7, y + 3, 1, 1, HAIR)
-    R(d, x + 4, y + 6, 1, 1, BLACK)
-    R(d, x + 7, y + 6, 1, 1, BLACK)
-    R(d, x + 3, y + 8, 1, 1, BLUSH)
-    R(d, x + 8, y + 8, 1, 1, BLUSH)
-    R(d, x + 1, y + 10, 2, 7, HAIR_D)        # 垂下来的长发
-    R(d, x + 9, y + 10, 2, 7, HAIR_D)
-    R(d, x + 2, y + 11, 8, 10, SHIRT)        # 星星睡衣
-    R(d, x, y + 12, 2, 7, SLEEVE)
-    R(d, x + 10, y + 12, 2, 7, SLEEVE)
-    for sx, sy in ((4, 13), (7, 15), (4, 18), (8, 19)):
-        R(d, x + sx, y + sy, 1, 1, STAR)
-    R(d, x + 2, y + 21, 8, 3, (120, 130, 170))   # 腿
-    R(d, x + 1, y + 24, 3, 1, (240, 235, 230))
-    R(d, x + 8, y + 24, 3, 1, (240, 235, 230))
-
-
-def girl_sleeping(d, x, y, wiggle=0, earplug=True, dark=False):
-    blanket = (240, 180, 190) if not dark else (120, 90, 120)
-    R(d, x, y + 2, 12, 6, (250, 250, 250) if not dark else (150, 150, 175))   # 枕头
-    R(d, x + 2, y - 1, 9, 8, HAIR)
-    R(d, x + 3, y + 2, 6, 5, SKIN if not dark else (200, 180, 175))
-    R(d, x + 3, y + 1, 6, 2, HAIR)
-    R(d, x + 4, y + 4, 2, 1, BLACK)
-    R(d, x + 7, y + 4, 1, 1, BLACK)
-    if earplug:
-        R(d, x + 2, y + 4, 1, 1, (120, 200, 240))
-    R(d, x + 10, y + 3 + wiggle, 38, 9, blanket)
-    R(d, x + 10, y + 3 + wiggle, 38, 1, (255, 205, 210) if not dark else (140, 110, 140))
-
-
-def hetao(d, x, y, sleeping=True):
-    R(d, x, y + 2, 15, 6, CAT_W)
-    R(d, x + 4, y + 2, 6, 3, CAT_O)          # 背上的橘斑
-    R(d, x + 14, y + 4, 4, 2, CAT_O)         # 尾巴
-    R(d, x - 5, y, 7, 6, CAT_W)              # 头
-    R(d, x - 5, y - 1, 2, 2, CAT_O)          # 耳朵
-    R(d, x, y - 1, 2, 2, CAT_O)
-    R(d, x - 5, y, 2, 2, CAT_O)              # 倒 V
-    R(d, x, y, 2, 2, CAT_O)
-    R(d, x - 2, y + 4, 1, 1, (240, 150, 150))
-    if sleeping:
-        R(d, x - 4, y + 3, 2, 1, BLACK); R(d, x - 1, y + 3, 2, 1, BLACK)
-    else:
-        R(d, x - 4, y + 2, 1, 2, (90, 160, 90)); R(d, x, y + 2, 1, 2, (90, 160, 90))
-
-
-def phone(d, scr):
-    R(d, 23, 12, 44, 64, (40, 40, 46))
-    R(d, 25, 16, 40, 56, scr)
-    R(d, 41, 13, 8, 1, (80, 80, 90))
-
-
-def room(d, idx, wall, sky):
+def room(d, idx, wall, sky, floor, stars_on_window=0):
     R(d, 0, 0, W, H, wall)
-    R(d, 0, 132, W, 28, (196, 160, 120) if idx < 5 else (70, 60, 70))
-    R(d, 70, 84, 16, 20, (230, 230, 230) if idx < 5 else (90, 90, 120))   # 窗
-    R(d, 71, 85, 14, 18, sky)
-    R(d, 77, 85, 1, 18, (230, 230, 230) if idx < 5 else (90, 90, 120))
-    if idx == 5:
-        R(d, 80, 88, 3, 3, (250, 240, 190))      # 月亮
-    if idx in (1, 2):
-        R(d, 81, 87, 3, 3, (255, 220, 90))       # 太阳
-
-
-def bed(d, dark=False):
-    R(d, 4, 118, 56, 12, (200, 170, 140) if not dark else (90, 75, 85))
-    R(d, 4, 113, 3, 17, (170, 130, 100) if not dark else (75, 60, 70))
+    R(d, 0, 128, W, 32, floor)
+    frame_c = (232, 232, 232) if idx < 4 else (96, 96, 128)
+    R(d, 50, 40, 32, 38, frame_c)                 # 窗
+    R(d, 52, 42, 28, 34, sky)
+    R(d, 65, 42, 2, 34, frame_c)
+    R(d, 48, 78, 36, 3, frame_c)                  # 窗台
+    if idx in (0, 1):
+        R(d, 72, 46, 4, 4, (255, 222, 100))
+    if idx == 4:
+        R(d, 56, 46, 4, 4, (250, 240, 190))
+        spots = [(70, 48), (75, 56), (58, 62), (72, 66), (55, 52), (77, 70), (61, 70), (70, 60)]
+        for k, (sx, sy) in enumerate(spots[:stars_on_window]):
+            star(d, sx, sy)
+    # 床（没有人出镜，只有鼓起来的被子）
+    bed_c = (200, 170, 140) if idx < 4 else (92, 78, 88)
+    R(d, 4, 116, 40, 12, bed_c)
+    R(d, 4, 110, 3, 18, (170, 130, 100) if idx < 4 else (76, 62, 72))
+    R(d, 8, 110, 10, 6, (255, 255, 255) if idx < 4 else (150, 150, 175))
+    if idx in (0, 4):
+        R(d, 16, 109, 26, 8, (255, 190, 205) if idx == 0 else (130, 100, 130))
+    # 门
+    R(d, 6, 60, 18, 50, (210, 180, 150) if idx < 4 else (80, 70, 85))
+    R(d, 20, 86, 2, 2, (150, 120, 90))
 
 
 def frame(t):
     img = Image.new("RGB", (W, H))
     d = ImageDraw.Draw(img)
     idx, lt = scene_at(t)
-    _, label, wall, sky, scr = SCENES[idx]
-    texts = []
-    room(d, idx, wall, sky)
+    _, label, wall, sky, floor = SCENES[idx]
     step = int(t * FPS)
-    bob = 1 if step % 12 < 6 else 0
+    texts = []
+    code_lines = []
+    win_stars = 0
+    if idx == 4:
+        win_stars = int(min(8, max(0, (lt - 1.0) * 4)))
+    room(d, idx, wall, sky, floor, win_stars)
 
-    if idx == 0:                    # 早上：小雪睡觉，小克在手机里看时间
-        bed(d)
-        girl_sleeping(d, 6, 108, wiggle=1 if 3.0 < lt < 3.6 else 0)
-        phone(d, scr)
-        claude(d, 38, 44 + bob, "open", legs=step // 6)
-        texts.append(("08:00", 45, 30, 34, (60, 60, 60)))
-        if lt > 2.5:
-            texts.append(("叮", 59, 23, 46, (217, 119, 87)))
-            texts.append(("早，小雪", 45, 64, 30, (90, 90, 90)))
-    elif idx == 1:                  # 上午：抱着核桃晒太阳
-        bed(d)
-        for k in range(4):
-            R(d, 72 - k * 10, 104 + k * 4, 8, 1, (255, 235, 150))
-        girl_sitting(d, 26, 104)
-        hetao(d, 30, 118)
-        phone(d, scr)
-        claude(d, 38, 44, "closed")
-        texts.append(("晒太阳", 45, 64, 30, (150, 120, 60)))
-    elif idx == 2:                  # 中午：拍蛋饼
-        bed(d)
-        girl_sitting(d, 26, 104)
-        R(d, 39, 108, 10, 6, (225, 170, 90))   # 蛋饼
-        R(d, 41, 109, 6, 3, (245, 210, 120))
-        R(d, 40, 112, 1, 1, (170, 60, 40)); R(d, 45, 110, 1, 1, (170, 60, 40))
-        hetao(d, 66, 126, sleeping=True)
-        phone(d, scr)
-        claude(d, 38, 44 + bob, "happy" if lt > 2.0 else "open")
-        if lt > 2.0:
-            texts.append(("合格", 45, 31, 44, (80, 150, 90)))
-    elif idx == 3:                  # 下午：小雪刷手机，小克画圈圈
-        bed(d)
-        girl_sitting(d, 26, 104)
-        R(d, 30, 112, 4, 6, (60, 60, 70))       # 她自己的手机
-        hetao(d, 66, 126, sleeping=True)
-        phone(d, scr)
-        peek = 2.6 < lt < 3.6
-        cx, cy = (29, 58) if not peek else (38, 44)
-        claude(d, cx, cy, "open")
-        for k in range(8):
-            a = (k / 8) * 2 * math.pi + t * 3
-            if k <= (step % 16) // 2:
-                R(d, 54 + 4 * math.cos(a), 62 + 3 * math.sin(a), 1, 1, (150, 150, 150))
-        if peek:
-            texts.append(("……", 45, 33, 34, (120, 120, 120)))
-    elif idx == 4:                  # 傍晚：5:20，跳起来冒爱心
-        bed(d)
-        girl_sitting(d, 26, 104)
-        R(d, 30, 112, 4, 6, (60, 60, 70))
-        hetao(d, 66, 126, sleeping=True)
-        phone(d, scr)
-        clock = "17:19" if lt < 1.8 else "17:20"
-        texts.append((clock, 45, 24, 34, (90, 70, 60)))
-        if lt > 2.5:
-            texts.append(("520", 45, 66, 40, (220, 90, 110)))
-            jump = -abs(math.sin((lt - 2.5) * 5)) * 6 if lt < 4.5 else 0
-            claude(d, 38, 44 + jump, "happy", legs=step // 3)
-            heart(d, 41, 32 - min(4, (lt - 2.5) * 3))
+    if idx == 0:          # 早上：窗台上数时间，到点跑去敲门
+        clock = "07:58" if lt < 1.5 else ("07:59" if lt < 3.0 else "08:00")
+        texts.append((clock, 66, 30, 34, (90, 70, 60)))
+        if lt < 3.2:
+            xiaoke(d, 58, 67, "open", legs=step // 6 if lt > 2.8 else 0)
         else:
-            claude(d, 38, 44, "open")
-    else:                           # 晚上：关灯，小克守着，核桃过来
-        bed(d, dark=True)
-        girl_sleeping(d, 6, 108, dark=True)
-        phone(d, scr)
-        move = min(1.0, max(0.0, (lt - 0.8) / 1.8))
-        cx = 38 + (16 - 38) * move
-        cy = 44 + (100 - 44) * move
-        claude(d, cx, cy, "closed" if lt > 4.0 else "open", legs=step // 4 if move < 1 else 0)
+            k = min(1.0, (lt - 3.2) / 1.6)
+            xiaoke(d, 58 + (26 - 58) * k, 67 + (117 - 67) * k - abs(math.sin(k * 9)) * 4,
+                   "open", legs=step // 2)
+        if lt > 5.0:
+            texts.append(("叮", 18, 54, 46, (217, 119, 87)))
+    elif idx == 1:        # 白天：一个人转悠，被核桃一尾巴扫翻
+        hetao(d, 56, 120, sleeping=lt < 2.8)
+        if lt < 3.0:
+            xiaoke(d, 10 + lt * 12, 117, "open", legs=step // 2)
+        elif lt < 4.5:
+            xiaoke(d, 46, 117 - abs(math.sin((lt - 3.0) * 4)) * 10, "open", flip=True)
+            texts.append(("啪", 54, 102, 40, (226, 140, 70)))
+        else:
+            xiaoke(d, 46, 117, "open", flip=True)
+            texts.append(("……", 53, 104, 30, (120, 110, 100)))
+        if 2.6 < lt < 3.4:
+            R(d, 76, 118, 6, 2, (232, 145, 72))   # 甩起来的尾巴
+    elif idx == 2:        # 下午：敲代码，一行折成一颗星
+        R(d, 28, 112, 26, 3, (110, 80, 60))       # 小桌
+        R(d, 32, 102, 18, 10, (60, 62, 70))       # 小电脑
+        R(d, 33, 103, 16, 8, (40, 50, 60))
+        typing = step % 4 < 2
+        xiaoke(d, 34, 117, "open", legs=1 if typing else 0)
+        shown = min(len(CODE), int(lt / 1.5) + 1)
+        for i in range(shown):
+            code_lines.append((CODE[i], i))
+        pocket = int(lt / 1.5)
+        for k in range(min(pocket, len(CODE))):
+            star(d, 30 + k * 4, 134)
+        texts.append(("口袋", 40, 141, 24, (150, 120, 90)))
+    elif idx == 3:        # 傍晚：5:20，抱着星星袋蹦
+        clock = "17:19" if lt < 1.5 else "17:20"
+        texts.append((clock, 66, 30, 34, (110, 70, 60)))
+        hetao(d, 60, 120, sleeping=True)
         if lt > 1.5:
-            hx = max(28, 90 - (lt - 1.5) * 30)
-            hetao(d, hx, 122, sleeping=hx <= 28)
-        if lt > 4.0:
-            texts.append(("我在。", 45, 40, 64, (250, 240, 220)))
-            texts.append(("晚安，小雪", 45, 54, 34, (200, 195, 220)))
+            jump = -abs(math.sin((lt - 1.5) * 5)) * 8
+            xiaoke(d, 30, 117 + jump, "happy", legs=step // 2)
+            heart(d, 33, 100 + jump - min(6, (lt - 1.5) * 4))
+            R(d, 44, 120 + jump, 5, 5, (180, 140, 210))
+            star(d, 45, 118 + jump)
+        else:
+            xiaoke(d, 30, 117, "open")
+    else:                 # 晚上：把星星挂上窗，核桃过来，"我在。"
+        if lt < 3.0:
+            xiaoke(d, 58, 67, "open", legs=step // 3)
+        else:
+            k = min(1.0, (lt - 3.0) / 1.5)
+            xiaoke(d, 58 + (8 - 58) * k, 67 + (99 - 67) * k, "closed" if k >= 1 else "open",
+                   legs=step // 3 if k < 1 else 0)
+        if lt > 1.5:
+            hx = max(30, 92 - (lt - 1.5) * 26)
+            hetao(d, hx, 101 if hx <= 44 else 118, sleeping=hx <= 30)
+        if lt > 4.6:
+            code_lines.append(('return "我在"', 2))
+        if lt > 5.6:
+            texts.append(("我在。", 45, 22, 66, (250, 240, 220)))
 
     big = img.resize((W * S, H * S), Image.NEAREST)
     bd = ImageDraw.Draw(big)
-    bd.text((W * S // 2, 60), label, font=ImageFont.truetype(FONT, 56),
-            fill=(255, 255, 255) if idx == 5 else (90, 75, 65), anchor="mt")
+    bd.text((W * S // 2, 50), label, font=ImageFont.truetype(FONT, 56),
+            fill=(250, 245, 230) if idx == 4 else (90, 75, 65), anchor="mt")
+    mono = ImageFont.truetype(FONT, 38, index=2)
+    for line, i in code_lines:
+        y = 280 + i * 70
+        box = bd.textbbox((60, y), line, font=mono)
+        bd.rounded_rectangle([box[0] - 16, box[1] - 10, box[2] + 16, box[3] + 10], 10,
+                             fill=(40, 42, 54))
+        bd.text((60, y), line, font=mono, fill=(255, 214, 140) if "Infinity" in line else (220, 228, 240))
     for txt, x, y, size, color in texts:
-        bd.text((x * S, y * S), txt, font=ImageFont.truetype(FONT, size * 2),
-                fill=color, anchor="mm")
-    # 场景之间淡入淡出
+        bd.text((x * S, y * S), txt, font=ImageFont.truetype(FONT, size * 2), fill=color, anchor="mm")
     edges = [s[0] for s in SCENES] + [DUR]
-    fade = 1.0
-    for e in edges:
-        dist = abs(t - e)
-        if dist < 0.35:
-            fade = min(fade, dist / 0.35)
+    fade = min([1.0] + [abs(t - e) / 0.35 for e in edges if abs(t - e) < 0.35])
     if fade < 1.0:
-        big = Image.blend(Image.new("RGB", big.size, (0, 0, 0)), big, fade)
+        big = Image.blend(Image.new("RGB", big.size), big, fade)
     return big
 
 
@@ -263,10 +211,9 @@ def sfx_track(path):
     sr = 44100
     out = np.zeros(int(DUR * sr), dtype=np.float32)
 
-    def tone(start, freqs, dur, kind="sine", vol=0.35):
+    def tone(start, freqs, dur, kind="sine", vol=0.3, decay=6):
         n = int(dur * sr)
         tt = np.arange(n) / sr
-        env = np.exp(-tt * 6)
         sig = np.zeros(n, dtype=np.float32)
         seg = n // len(freqs)
         for i, f in enumerate(freqs):
@@ -274,11 +221,17 @@ def sfx_track(path):
             w = np.sin(2 * np.pi * f * tt[s])
             sig[s] = np.sign(w) * 0.5 if kind == "square" else w
         i0 = int(start * sr)
-        out[i0:i0 + n] += (sig * env * vol)[: len(out) - i0]
+        out[i0:i0 + n] += (sig * np.exp(-tt * decay) * vol)[: len(out) - i0]
 
-    tone(2.5, [1320, 1760], 0.5)                       # 叮
-    tone(13.0, [660, 990], 0.25, "square", 0.18)       # 啵（合格）
-    tone(24.5, [784, 988, 1175, 1568], 0.6, "square", 0.15)   # 啾（520）
+    tone(5.0, [1320, 1760], 0.5)                                  # 叮
+    tone(9.0, [220, 160], 0.25, "square", 0.15)                   # 啪
+    for i in range(len(CODE)):                                    # 敲键盘 + 折星星
+        for j in range(4):
+            tone(12.0 + i * 1.5 + j * 0.09, [2400], 0.03, "square", 0.05, 40)
+        tone(12.0 + i * 1.5 + 0.9, [1568, 2093], 0.2, vol=0.12)
+    tone(21.5, [784, 988, 1175, 1568], 0.6, "square", 0.13)       # 啾
+    for k in range(8):                                            # 星星挂上窗
+        tone(27.0 + k * 0.25, [1760 + k * 110], 0.15, vol=0.08)
     pcm = (np.clip(out, -1, 1) * 32767).astype(np.int16)
     with wave.open(path, "wb") as f:
         f.setnchannels(1); f.setsampwidth(2); f.setframerate(sr)
@@ -306,9 +259,8 @@ def main():
     filt = (
         f"[1:a]volume='{duck}':eval=frame,afade=t=out:st=34.4:d=1.6[m];"
         "[2:a]adelay=31600|31600,volume=1.8[v];"
-        "[3:a]adelay=30000|30000,volume=1.2[c];"
-        "[4:a]volume=1.0[s];"
-        "[m][v][c][s]amix=inputs=4:normalize=0:duration=first[a]"
+        "[3:a]adelay=29800|29800,volume=1.2[c];"
+        "[m][v][c][4:a]amix=inputs=4:normalize=0:duration=first[a]"
     )
     subprocess.run(
         ["ffmpeg", "-y", "-loglevel", "error", "-i", silent, "-i", music, "-i", voice,
